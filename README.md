@@ -9,7 +9,7 @@ ShopHub 是一个本地生活服务平台项目，核心围绕商户查询、优
 ```mermaid
 flowchart LR
     A[Web 前端 hmdp] --> B[Nginx 反向代理]
-    B --> C[hm-dianping 业务服务]
+    B --> C[hmdianping 业务服务]
     B --> D[consultant 智能客服服务]
     C --> E[(Redis)]
     C --> F[(MySQL)]
@@ -28,7 +28,7 @@ flowchart LR
 
 ## 模块说明
 
-### 1. happy_market/hm-dianping
+### 1. ShopHub/hmdianping
 
 主业务模块，包含登录、店铺查询、博客、优惠券和秒杀下单等能力。
 
@@ -64,10 +64,10 @@ flowchart LR
 
 ## 运行说明
 
-### hm-dianping
+### hmdianping
 
 1. 配置 MySQL 与 Redis
-2. 导入数据库脚本: `happy_market/hm-dianping/src/main/resources/db/hmdp.sql`
+2. 导入数据库脚本: `ShopHub/hmdianping/src/main/resources/db/hmdp.sql`
 3. 启动服务
 
 ### consultant
