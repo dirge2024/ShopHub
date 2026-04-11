@@ -1,7 +1,6 @@
 package com.hmdp;
 
 import com.hmdp.entity.Shop;
-import com.hmdp.service.IShopService;
 import com.hmdp.service.impl.ShopServiceImpl;
 import com.hmdp.utils.CacheClient;
 import com.hmdp.utils.RedisIdWorker;
@@ -18,7 +17,7 @@ import java.util.concurrent.TimeUnit;
 import static com.hmdp.utils.RedisConstants.CACHE_SHOP_KEY;
 
 @SpringBootTest
-class HmDianPingApplicationTests {
+class ShopHubApplicationTests {
 
     @Resource
     private ShopServiceImpl shopService;;
