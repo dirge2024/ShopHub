@@ -67,7 +67,7 @@ flowchart LR
 ### shophub
 
 1. 配置 MySQL 与 Redis
-2. 导入数据库脚本: `ShopHub/shophub/src/main/resources/db/hmdp.sql`
+2. 导入数据库脚本: `ShopHub/shophub/src/main/resources/db/shophub.sql`
 3. 启动服务
 
 ### consultant
