@@ -1,0 +1,24 @@
+﻿# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Java build
+**/target/
+**/*.class
+**/*.log
+
+# Node
+**/node_modules/
+
+# Nginx runtime
+nginx-1.18.0/nginx-1.18.0/logs/
+nginx-1.18.0/nginx-1.18.0/temp/
+
+# Archives
+*.zip
+*.tar
+*.gz
