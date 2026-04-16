@@ -11,6 +11,8 @@ import com.shophub.service.IShopService;
 import com.shophub.service.LocalCacheService;
 import com.shophub.utils.CacheClient;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
@@ -66,18 +68,34 @@ public class ShopServiceImpl extends ServiceImpl<ShopMapper, Shop> implements IS
             return Result.fail("点评id不存在");
         }
         updateById(shop);
+        registerCacheEvictAfterCommit(id);
+        return Result.ok();
+    }
 
-        boolean deleted = cacheEvictService.evictShopCache(id);
+    private void registerCacheEvictAfterCommit(Long shopId) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            evictShopCache(shopId);
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                evictShopCache(shopId);
+            }
+        });
+    }
+
+    private void evictShopCache(Long shopId) {
+        boolean deleted = cacheEvictService.evictShopCache(shopId);
         if (!deleted) {
             shopEventProducer.sendCacheEvict(new CacheEvictEvent(
                     SHOP_CACHE,
-                    CACHE_SHOP_KEY + id,
-                    String.valueOf(id),
+                    CACHE_SHOP_KEY + shopId,
+                    String.valueOf(shopId),
                     1,
                     LocalDateTime.now()
             ));
         }
-        return Result.ok();
     }
 }
 
