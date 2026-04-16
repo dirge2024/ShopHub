@@ -115,8 +115,12 @@ public class CacheClient {
         //2、要判断是否存在
         if(StrUtil.isBlank(json))
         {
-            //3、如果存在直接返回结果
-            return null;
+            R r = dbFallback.apply(id);
+            if (Objects.isNull(r)) {
+                return null;
+            }
+            this.setWithLogicalExpire(key, r, timeout, unit);
+            return r;
         }
         //4、命中，需要吧json反序列化为对象、
         RedisData redisData = JSONUtil.toBean(json,RedisData.class);
