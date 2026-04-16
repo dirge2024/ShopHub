@@ -22,6 +22,10 @@ import java.util.Collections;
 @Service
 public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, VoucherOrder> implements IVoucherOrderService {
 
+    private static final DefaultRedisScript<Long> SECKILL_SCRIPT;
+
+    private static final DefaultRedisScript<Long> SECKILL_ROLLBACK_SCRIPT;
+
     @Resource
     private RedisIdWorker redisIdWorker;
 
@@ -34,12 +38,14 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
     @Resource
     private VoucherOrderTransactionalService voucherOrderTransactionalService;
 
-    private static final DefaultRedisScript<Long> SECKILL_SCRIPT;
-
     static {
         SECKILL_SCRIPT = new DefaultRedisScript<>();
         SECKILL_SCRIPT.setLocation(new ClassPathResource("seckill.lua"));
         SECKILL_SCRIPT.setResultType(Long.class);
+
+        SECKILL_ROLLBACK_SCRIPT = new DefaultRedisScript<>();
+        SECKILL_ROLLBACK_SCRIPT.setLocation(new ClassPathResource("seckill_rollback.lua"));
+        SECKILL_ROLLBACK_SCRIPT.setResultType(Long.class);
     }
 
     @Override
@@ -60,12 +66,16 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         }
 
         Long orderId = redisIdWorker.nextID("order");
-        shopEventProducer.sendSeckillOrder(new SeckillOrderEvent(
+        boolean sent = shopEventProducer.sendSeckillOrder(new SeckillOrderEvent(
                 orderId,
                 userId,
                 voucherId,
                 LocalDateTime.now()
         ));
+        if (!sent) {
+            rollbackSeckillReservation(voucherId, userId);
+            return Result.fail("下单人数较多，请稍后重试");
+        }
         return Result.ok(orderId);
     }
 
@@ -80,6 +90,15 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
                 LocalDateTime.now()
         ));
         return Result.ok(orderId);
+    }
+
+    private void rollbackSeckillReservation(Long voucherId, Long userId) {
+        stringRedisTemplate.execute(
+                SECKILL_ROLLBACK_SCRIPT,
+                Collections.emptyList(),
+                voucherId.toString(),
+                userId.toString()
+        );
     }
 }
 
