@@ -94,18 +94,7 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         if (VoucherOrderStatusConstants.UNPAID != voucherOrder.getStatus()) {
             return Result.fail("当前订单状态不允许支付");
         }
-
-        VoucherOrder updateOrder = new VoucherOrder();
-        updateOrder.setId(orderId);
-        updateOrder.setStatus(VoucherOrderStatusConstants.PAID);
-        updateOrder.setPayType(payType);
-        updateOrder.setPayTime(LocalDateTime.now());
-        updateOrder.setVersion(voucherOrder.getVersion());
-        boolean success = updateById(updateOrder);
-        if (!success) {
-            return Result.fail("订单状态已变更，请刷新后重试");
-        }
-        return Result.ok("支付成功");
+        return updateOrderStatus(voucherOrder, VoucherOrderStatusConstants.PAID, payType, "支付成功");
     }
 
     @Override
@@ -125,16 +114,23 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
                 voucherOrder.getCreateTime().plusMinutes(timeoutMinutes).isAfter(LocalDateTime.now())) {
             return Result.fail("订单未超时");
         }
+        return updateOrderStatus(voucherOrder, VoucherOrderStatusConstants.CANCELED, null, "超时关单成功");
+    }
 
+    private Result updateOrderStatus(VoucherOrder voucherOrder, Integer targetStatus, Integer payType, String successMessage) {
         VoucherOrder updateOrder = new VoucherOrder();
-        updateOrder.setId(orderId);
-        updateOrder.setStatus(VoucherOrderStatusConstants.CANCELED);
+        updateOrder.setId(voucherOrder.getId());
+        updateOrder.setStatus(targetStatus);
         updateOrder.setVersion(voucherOrder.getVersion());
+        if (payType != null) {
+            updateOrder.setPayType(payType);
+            updateOrder.setPayTime(LocalDateTime.now());
+        }
         boolean success = updateById(updateOrder);
         if (!success) {
             return Result.fail("订单状态已变更，请刷新后重试");
         }
-        return Result.ok("超时关单成功");
+        return Result.ok(successMessage);
     }
 
     private void rollbackSeckillReservation(Long voucherId, Long userId) {
