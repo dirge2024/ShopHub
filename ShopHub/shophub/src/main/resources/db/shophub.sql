@@ -1273,6 +1273,7 @@ CREATE TABLE `tb_voucher_order`  (
   `pay_time` timestamp NULL DEFAULT NULL COMMENT '支付时间',
   `use_time` timestamp NULL DEFAULT NULL COMMENT '核销时间',
   `refund_time` timestamp NULL DEFAULT NULL COMMENT '退款时间',
+  `version` int(11) NOT NULL DEFAULT 0 COMMENT '乐观锁版本号',
   `update_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE INDEX `uk_user_voucher`(`user_id`, `voucher_id`) USING BTREE
