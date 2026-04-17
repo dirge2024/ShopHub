@@ -10,10 +10,12 @@ import com.shophub.service.IVoucherOrderService;
 import com.shophub.service.VoucherOrderTransactionalService;
 import com.shophub.utils.RedisIdWorker;
 import com.shophub.utils.UserHolder;
+import com.shophub.utils.VoucherOrderStatusConstants;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
 import java.time.LocalDateTime;
@@ -77,6 +79,33 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
             return Result.fail("下单人数较多，请稍后重试");
         }
         return Result.ok(orderId);
+    }
+
+    @Override
+    @Transactional
+    public Result paySuccess(Long orderId, Integer payType) {
+        VoucherOrder voucherOrder = getById(orderId);
+        if (voucherOrder == null) {
+            return Result.fail("订单不存在");
+        }
+        if (VoucherOrderStatusConstants.PAID == voucherOrder.getStatus()) {
+            return Result.ok("订单已支付");
+        }
+        if (VoucherOrderStatusConstants.UNPAID != voucherOrder.getStatus()) {
+            return Result.fail("当前订单状态不允许支付");
+        }
+
+        VoucherOrder updateOrder = new VoucherOrder();
+        updateOrder.setId(orderId);
+        updateOrder.setStatus(VoucherOrderStatusConstants.PAID);
+        updateOrder.setPayType(payType);
+        updateOrder.setPayTime(LocalDateTime.now());
+        updateOrder.setVersion(voucherOrder.getVersion());
+        boolean success = updateById(updateOrder);
+        if (!success) {
+            return Result.fail("订单状态已变更，请刷新后重试");
+        }
+        return Result.ok("支付成功");
     }
 
     private void rollbackSeckillReservation(Long voucherId, Long userId) {

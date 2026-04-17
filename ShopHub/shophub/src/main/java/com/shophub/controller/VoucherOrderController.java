@@ -3,9 +3,9 @@ package com.shophub.controller;
 
 import com.shophub.dto.Result;
 import com.shophub.service.IVoucherOrderService;
-import com.shophub.service.IVoucherService;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -29,6 +29,12 @@ public class VoucherOrderController {
     public Result seckillVoucher(@PathVariable("id") Long voucherId) {
 
         return voucherOrderService.seckillVoucher(voucherId);
+    }
+
+    @PostMapping("pay-success/{id}")
+    public Result paySuccess(@PathVariable("id") Long orderId,
+                             @RequestParam(value = "payType", defaultValue = "2") Integer payType) {
+        return voucherOrderService.paySuccess(orderId, payType);
     }
 }
 
