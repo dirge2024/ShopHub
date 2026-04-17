@@ -79,19 +79,6 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         return Result.ok(orderId);
     }
 
-    @Override
-    public Result createVoucherOrder(Long voucherId) {
-        Long userId = UserHolder.getUser().getId();
-        Long orderId = redisIdWorker.nextID("order");
-        voucherOrderTransactionalService.createSeckillOrder(new SeckillOrderEvent(
-                orderId,
-                userId,
-                voucherId,
-                LocalDateTime.now()
-        ));
-        return Result.ok(orderId);
-    }
-
     private void rollbackSeckillReservation(Long voucherId, Long userId) {
         stringRedisTemplate.execute(
                 SECKILL_ROLLBACK_SCRIPT,
