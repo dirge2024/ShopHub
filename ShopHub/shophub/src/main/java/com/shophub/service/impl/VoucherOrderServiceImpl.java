@@ -108,6 +108,35 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         return Result.ok("支付成功");
     }
 
+    @Override
+    @Transactional
+    public Result closeTimeoutOrder(Long orderId, Integer timeoutMinutes) {
+        VoucherOrder voucherOrder = getById(orderId);
+        if (voucherOrder == null) {
+            return Result.fail("订单不存在");
+        }
+        if (VoucherOrderStatusConstants.CANCELED == voucherOrder.getStatus()) {
+            return Result.ok("订单已取消");
+        }
+        if (VoucherOrderStatusConstants.UNPAID != voucherOrder.getStatus()) {
+            return Result.fail("当前订单状态不允许关单");
+        }
+        if (voucherOrder.getCreateTime() == null ||
+                voucherOrder.getCreateTime().plusMinutes(timeoutMinutes).isAfter(LocalDateTime.now())) {
+            return Result.fail("订单未超时");
+        }
+
+        VoucherOrder updateOrder = new VoucherOrder();
+        updateOrder.setId(orderId);
+        updateOrder.setStatus(VoucherOrderStatusConstants.CANCELED);
+        updateOrder.setVersion(voucherOrder.getVersion());
+        boolean success = updateById(updateOrder);
+        if (!success) {
+            return Result.fail("订单状态已变更，请刷新后重试");
+        }
+        return Result.ok("超时关单成功");
+    }
+
     private void rollbackSeckillReservation(Long voucherId, Long userId) {
         stringRedisTemplate.execute(
                 SECKILL_ROLLBACK_SCRIPT,

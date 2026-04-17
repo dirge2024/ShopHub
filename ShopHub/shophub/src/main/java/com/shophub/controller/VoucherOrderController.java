@@ -36,5 +36,11 @@ public class VoucherOrderController {
                              @RequestParam(value = "payType", defaultValue = "2") Integer payType) {
         return voucherOrderService.paySuccess(orderId, payType);
     }
+
+    @PostMapping("timeout-close/{id}")
+    public Result closeTimeoutOrder(@PathVariable("id") Long orderId,
+                                    @RequestParam(value = "timeoutMinutes", defaultValue = "15") Integer timeoutMinutes) {
+        return voucherOrderService.closeTimeoutOrder(orderId, timeoutMinutes);
+    }
 }
 
