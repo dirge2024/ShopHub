@@ -14,5 +14,6 @@ public class SeckillOrderEvent {
     private Long orderId;
     private Long userId;
     private Long voucherId;
+    private Integer retryCount;
     private LocalDateTime createdAt;
 }

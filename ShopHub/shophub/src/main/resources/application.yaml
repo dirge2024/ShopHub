@@ -48,6 +48,7 @@ shophub:
     local-shop-type-ttl-minutes: 10
   mq:
     cache-evict-max-retry: 3
+    seckill-order-max-retry: 3
   order:
     timeout-minutes: 15
     scan-batch-size: 20

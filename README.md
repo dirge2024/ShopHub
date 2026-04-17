@@ -4,13 +4,6 @@ ShopHub 是一个本地生活服务平台项目，核心围绕商户查询、优
 
 本仓库以工程实现为主，包含业务后端、智能客服模块与 Nginx 部署配置。
 
-## 项目亮点
-
-- 秒杀链路使用 Redis + Lua 原子校验，降低超卖与并发竞争风险
-- 业务服务与智能客服服务解耦，便于独立扩展和部署
-- Nginx 统一网关转发，前后端联调路径清晰
-- 支持从本地开发到打包部署的完整工程流程
-
 ## 技术架构
 
 ```mermaid
@@ -59,15 +52,6 @@ flowchart LR
 - `/api/**` 转发至业务服务
 - `/ai/**` 转发至智能客服服务
 
-## 目录结构
-
-```text
-market/
-├─ ShopHub/shophub/          # 核心业务服务（Spring Boot）
-├─ consultant/               # 智能客服服务（Spring Boot + LangChain4j）
-└─ nginx-1.18.0/nginx-1.18.0 # 前端静态资源 + 反向代理配置
-```
-
 ## 关键实现说明
 
 ### 秒杀场景
@@ -86,36 +70,13 @@ market/
 2. 导入数据库脚本: `ShopHub/shophub/src/main/resources/db/shophub.sql`
 3. 启动服务
 
-```bash
-cd ShopHub/shophub
-mvn spring-boot:run
-```
-
 ### consultant
 
 1. 配置数据库与 Redis
 2. 配置大模型 API Key
 3. 启动服务
 
-```bash
-cd consultant
-mvn spring-boot:run
-```
-
 ### Nginx
 
 1. 检查 `nginx-1.18.0/nginx-1.18.0/conf/nginx.conf`
 2. 启动 Nginx，访问前端页面
-
-## 接口入口
-
-- 前端访问入口: `http://localhost:8080/`
-- 业务接口前缀: `http://localhost:8080/api/`
-- 智能客服接口前缀: `http://localhost:8080/ai/`
-
-## 打包命令
-
-```bash
-cd ShopHub/shophub
-mvn clean -DskipTests package
-```

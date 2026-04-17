@@ -20,24 +20,51 @@ public class ShopEventProducer {
     private KafkaTemplate<String, Object> kafkaTemplate;
 
     public boolean sendSeckillOrder(SeckillOrderEvent event) {
-        try {
-            kafkaTemplate.send(MQTopics.SECKILL_ORDER_TOPIC, String.valueOf(event.getOrderId()), event)
-                    .get(SEND_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-            return true;
-        } catch (Exception e) {
-            log.error("发送秒杀下单消息失败, orderId={}", event.getOrderId(), e);
-            return false;
-        }
+        return send(
+                MQTopics.SECKILL_ORDER_TOPIC,
+                String.valueOf(event.getOrderId()),
+                event,
+                "发送秒杀下单消息失败, orderId={}",
+                event.getOrderId()
+        );
+    }
+
+    public boolean sendSeckillOrderDeadLetter(SeckillOrderEvent event) {
+        return send(
+                MQTopics.SECKILL_ORDER_DLT_TOPIC,
+                String.valueOf(event.getOrderId()),
+                event,
+                "发送秒杀死信消息失败, orderId={}",
+                event.getOrderId()
+        );
     }
 
     public boolean sendCacheEvict(CacheEvictEvent event) {
+        return send(
+                MQTopics.CACHE_EVICT_TOPIC,
+                event.getRedisKey(),
+                event,
+                "发送缓存补偿消息失败, key={}",
+                event.getRedisKey()
+        );
+    }
+
+    public boolean sendCacheEvictDeadLetter(CacheEvictEvent event) {
+        return send(
+                MQTopics.CACHE_EVICT_DLT_TOPIC,
+                event.getRedisKey(),
+                event,
+                "发送缓存补偿死信消息失败, key={}",
+                event.getRedisKey()
+        );
+    }
+
+    private boolean send(String topic, String key, Object event, String errorMessage, Object logKey) {
         try {
-            kafkaTemplate.send(MQTopics.CACHE_EVICT_TOPIC, event.getRedisKey(), event)
-                    .get(SEND_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-            log.info("已发送缓存补偿消息, key={}, retry={}", event.getRedisKey(), event.getRetryCount());
+            kafkaTemplate.send(topic, key, event).get(SEND_TIMEOUT_SECONDS, TimeUnit.SECONDS);
             return true;
         } catch (Exception e) {
-            log.error("发送缓存补偿消息失败, key={}", event.getRedisKey(), e);
+            log.error(errorMessage, logKey, e);
             return false;
         }
     }

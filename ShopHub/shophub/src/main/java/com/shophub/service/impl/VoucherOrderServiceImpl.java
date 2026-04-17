@@ -73,6 +73,7 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
                 orderId,
                 userId,
                 voucherId,
+                0,
                 LocalDateTime.now()
         ));
         if (!sent) {

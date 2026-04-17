@@ -18,6 +18,8 @@ import java.time.LocalDateTime;
 @Component
 public class ShopEventConsumer {
 
+    private static final int INITIAL_RETRY_COUNT = 0;
+
     @Resource
     private VoucherOrderTransactionalService voucherOrderTransactionalService;
 
@@ -30,9 +32,34 @@ public class ShopEventConsumer {
     @Value("${shophub.mq.cache-evict-max-retry:3}")
     private int cacheEvictMaxRetry;
 
+    @Value("${shophub.mq.seckill-order-max-retry:3}")
+    private int seckillOrderMaxRetry;
+
     @KafkaListener(topics = MQTopics.SECKILL_ORDER_TOPIC, groupId = "shophub-seckill-order-group")
     public void handleSeckillOrder(SeckillOrderEvent event) {
-        voucherOrderTransactionalService.createSeckillOrder(event);
+        try {
+            voucherOrderTransactionalService.createSeckillOrder(event);
+        } catch (Exception e) {
+            int currentRetry = event.getRetryCount() == null ? INITIAL_RETRY_COUNT : event.getRetryCount();
+            log.error("秒杀订单消费失败, orderId={}, retry={}", event.getOrderId(), currentRetry, e);
+            if (currentRetry >= seckillOrderMaxRetry) {
+                boolean deadLetterSent = shopEventProducer.sendSeckillOrderDeadLetter(event);
+                if (!deadLetterSent) {
+                    log.error("秒杀订单死信投递失败, orderId={}", event.getOrderId());
+                }
+                return;
+            }
+
+            event.setRetryCount(currentRetry + 1);
+            event.setCreatedAt(LocalDateTime.now());
+            boolean retrySent = shopEventProducer.sendSeckillOrder(event);
+            if (!retrySent) {
+                boolean deadLetterSent = shopEventProducer.sendSeckillOrderDeadLetter(event);
+                if (!deadLetterSent) {
+                    log.error("秒杀订单重试与死信投递均失败, orderId={}", event.getOrderId());
+                }
+            }
+        }
     }
 
     @KafkaListener(topics = MQTopics.CACHE_EVICT_TOPIC, groupId = "shophub-cache-evict-group")
@@ -41,13 +68,35 @@ public class ShopEventConsumer {
         if (success) {
             return;
         }
-        int currentRetry = event.getRetryCount() == null ? 0 : event.getRetryCount();
+
+        int currentRetry = event.getRetryCount() == null ? INITIAL_RETRY_COUNT : event.getRetryCount();
         if (currentRetry >= cacheEvictMaxRetry) {
-            log.error("缓存补偿超过最大重试次数, key={}", event.getRedisKey());
+            boolean deadLetterSent = shopEventProducer.sendCacheEvictDeadLetter(event);
+            if (!deadLetterSent) {
+                log.error("缓存补偿死信投递失败, key={}", event.getRedisKey());
+            }
             return;
         }
+
         event.setRetryCount(currentRetry + 1);
         event.setCreatedAt(LocalDateTime.now());
-        shopEventProducer.sendCacheEvict(event);
+        boolean retrySent = shopEventProducer.sendCacheEvict(event);
+        if (!retrySent) {
+            boolean deadLetterSent = shopEventProducer.sendCacheEvictDeadLetter(event);
+            if (!deadLetterSent) {
+                log.error("缓存补偿重试与死信投递均失败, key={}", event.getRedisKey());
+            }
+        }
+    }
+
+    @KafkaListener(topics = MQTopics.SECKILL_ORDER_DLT_TOPIC, groupId = "shophub-seckill-order-dlt-group")
+    public void handleSeckillOrderDeadLetter(SeckillOrderEvent event) {
+        log.error("秒杀订单进入死信队列, orderId={}, userId={}, voucherId={}, retry={}",
+                event.getOrderId(), event.getUserId(), event.getVoucherId(), event.getRetryCount());
+    }
+
+    @KafkaListener(topics = MQTopics.CACHE_EVICT_DLT_TOPIC, groupId = "shophub-cache-evict-dlt-group")
+    public void handleCacheEvictDeadLetter(CacheEvictEvent event) {
+        log.error("缓存补偿进入死信队列, key={}, retry={}", event.getRedisKey(), event.getRetryCount());
     }
 }
