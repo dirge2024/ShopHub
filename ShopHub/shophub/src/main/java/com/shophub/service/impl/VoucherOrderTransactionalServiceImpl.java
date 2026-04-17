@@ -5,7 +5,7 @@ import com.shophub.messaging.event.SeckillOrderEvent;
 import com.shophub.service.ISeckillVoucherService;
 import com.shophub.service.IVoucherOrderService;
 import com.shophub.service.VoucherOrderTransactionalService;
-import com.shophub.utils.VoucherOrderStatusConstants;
+import com.shophub.utils.VoucherOrderStatus;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
@@ -49,7 +49,7 @@ public class VoucherOrderTransactionalServiceImpl implements VoucherOrderTransac
         voucherOrder.setId(event.getOrderId());
         voucherOrder.setUserId(event.getUserId());
         voucherOrder.setVoucherId(event.getVoucherId());
-        voucherOrder.setStatus(VoucherOrderStatusConstants.UNPAID);
+        voucherOrder.setStatus(VoucherOrderStatus.UNPAID.getCode());
         voucherOrder.setPayType(2);
         voucherOrder.setVersion(0);
         try {

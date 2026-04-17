@@ -10,7 +10,7 @@ import com.shophub.service.IVoucherOrderService;
 import com.shophub.service.VoucherOrderTransactionalService;
 import com.shophub.utils.RedisIdWorker;
 import com.shophub.utils.UserHolder;
-import com.shophub.utils.VoucherOrderStatusConstants;
+import com.shophub.utils.VoucherOrderStatus;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
@@ -88,13 +88,14 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         if (voucherOrder == null) {
             return Result.fail("订单不存在");
         }
-        if (VoucherOrderStatusConstants.PAID == voucherOrder.getStatus()) {
+        VoucherOrderStatus currentStatus = VoucherOrderStatus.of(voucherOrder.getStatus());
+        if (VoucherOrderStatus.PAID == currentStatus) {
             return Result.ok("订单已支付");
         }
-        if (VoucherOrderStatusConstants.UNPAID != voucherOrder.getStatus()) {
+        if (VoucherOrderStatus.UNPAID != currentStatus) {
             return Result.fail("当前订单状态不允许支付");
         }
-        return updateOrderStatus(voucherOrder, VoucherOrderStatusConstants.PAID, payType, "支付成功");
+        return updateOrderStatus(voucherOrder, VoucherOrderStatus.PAID, payType, "支付成功");
     }
 
     @Override
@@ -104,23 +105,24 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         if (voucherOrder == null) {
             return Result.fail("订单不存在");
         }
-        if (VoucherOrderStatusConstants.CANCELED == voucherOrder.getStatus()) {
+        VoucherOrderStatus currentStatus = VoucherOrderStatus.of(voucherOrder.getStatus());
+        if (VoucherOrderStatus.CANCELED == currentStatus) {
             return Result.ok("订单已取消");
         }
-        if (VoucherOrderStatusConstants.UNPAID != voucherOrder.getStatus()) {
+        if (VoucherOrderStatus.UNPAID != currentStatus) {
             return Result.fail("当前订单状态不允许关单");
         }
         if (voucherOrder.getCreateTime() == null ||
                 voucherOrder.getCreateTime().plusMinutes(timeoutMinutes).isAfter(LocalDateTime.now())) {
             return Result.fail("订单未超时");
         }
-        return updateOrderStatus(voucherOrder, VoucherOrderStatusConstants.CANCELED, null, "超时关单成功");
+        return updateOrderStatus(voucherOrder, VoucherOrderStatus.CANCELED, null, "超时关单成功");
     }
 
-    private Result updateOrderStatus(VoucherOrder voucherOrder, Integer targetStatus, Integer payType, String successMessage) {
+    private Result updateOrderStatus(VoucherOrder voucherOrder, VoucherOrderStatus targetStatus, Integer payType, String successMessage) {
         VoucherOrder updateOrder = new VoucherOrder();
         updateOrder.setId(voucherOrder.getId());
-        updateOrder.setStatus(targetStatus);
+        updateOrder.setStatus(targetStatus.getCode());
         updateOrder.setVersion(voucherOrder.getVersion());
         if (payType != null) {
             updateOrder.setPayType(payType);
