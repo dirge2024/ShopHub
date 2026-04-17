@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import javax.annotation.Resource;
 import java.time.LocalDateTime;
 import java.util.Collections;
+import java.util.List;
 
 @Service
 public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, VoucherOrder> implements IVoucherOrderService {
@@ -117,6 +118,28 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
             return Result.fail("订单未超时");
         }
         return updateOrderStatus(voucherOrder, VoucherOrderStatus.CANCELED, null, "超时关单成功");
+    }
+
+    @Override
+    public int scanTimeoutOrders(Integer timeoutMinutes, Integer batchSize) {
+        LocalDateTime timeoutLine = LocalDateTime.now().minusMinutes(timeoutMinutes);
+        List<VoucherOrder> timeoutOrders = query()
+                .eq("status", VoucherOrderStatus.UNPAID.getCode())
+                .le("create_time", timeoutLine)
+                .last("limit " + batchSize)
+                .list();
+        if (timeoutOrders == null || timeoutOrders.isEmpty()) {
+            return 0;
+        }
+
+        int successCount = 0;
+        for (VoucherOrder voucherOrder : timeoutOrders) {
+            Result result = closeTimeoutOrder(voucherOrder.getId(), timeoutMinutes);
+            if (Boolean.TRUE.equals(result.getSuccess())) {
+                successCount++;
+            }
+        }
+        return successCount;
     }
 
     private Result updateOrderStatus(VoucherOrder voucherOrder, VoucherOrderStatus targetStatus, Integer payType, String successMessage) {
