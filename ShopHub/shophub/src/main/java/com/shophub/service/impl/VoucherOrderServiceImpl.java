@@ -3,9 +3,11 @@ package com.shophub.service.impl;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.shophub.dto.Result;
 import com.shophub.entity.VoucherOrder;
+import com.shophub.entity.SeckillVoucher;
 import com.shophub.mapper.VoucherOrderMapper;
 import com.shophub.messaging.event.SeckillOrderEvent;
 import com.shophub.messaging.producer.ShopEventProducer;
+import com.shophub.service.ISeckillVoucherService;
 import com.shophub.service.IVoucherOrderService;
 import com.shophub.service.VoucherOrderTransactionalService;
 import com.shophub.utils.RedisIdWorker;
@@ -21,6 +23,9 @@ import javax.annotation.Resource;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
+
+import static com.shophub.utils.RedisConstants.SECKILL_STOCK_KEY;
 
 @Service
 public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, VoucherOrder> implements IVoucherOrderService {
@@ -41,6 +46,9 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
     @Resource
     private VoucherOrderTransactionalService voucherOrderTransactionalService;
 
+    @Resource
+    private ISeckillVoucherService seckillVoucherService;
+
     static {
         SECKILL_SCRIPT = new DefaultRedisScript<>();
         SECKILL_SCRIPT.setLocation(new ClassPathResource("seckill.lua"));
@@ -53,6 +61,12 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
 
     @Override
     public Result seckillVoucher(Long voucherId) {
+        // 兜底初始化 Redis 库存，保证直接插入数据库的测试秒杀券也能复用同一套 Lua 抢购链路。
+        Result initResult = initSeckillStockIfAbsent(voucherId);
+        if (initResult != null) {
+            return initResult;
+        }
+
         Long userId = UserHolder.getUser().getId();
         Long result = stringRedisTemplate.execute(
                 SECKILL_SCRIPT,
@@ -74,7 +88,7 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
                 userId,
                 voucherId,
                 0,
-                LocalDateTime.now()
+                LocalDateTime.now().toString()
         ));
         if (!sent) {
             rollbackSeckillReservation(voucherId, userId);
@@ -166,6 +180,31 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
                 voucherId.toString(),
                 userId.toString()
         );
+    }
+
+    private Result initSeckillStockIfAbsent(Long voucherId) {
+        String stockKey = SECKILL_STOCK_KEY + voucherId;
+        Boolean hasKey = stringRedisTemplate.hasKey(stockKey);
+        if (Boolean.TRUE.equals(hasKey)) {
+            return null;
+        }
+
+        SeckillVoucher seckillVoucher = seckillVoucherService.getById(voucherId);
+        if (seckillVoucher == null) {
+            return Result.fail("秒杀券不存在");
+        }
+        if (seckillVoucher.getStock() == null || seckillVoucher.getStock() < 1) {
+            return Result.fail("库存不足");
+        }
+
+        // 这里只做一次性库存预热，后续扣减全部交给 Lua 保证原子性。
+        stringRedisTemplate.opsForValue().setIfAbsent(
+                stockKey,
+                seckillVoucher.getStock().toString(),
+                30,
+                TimeUnit.DAYS
+        );
+        return null;
     }
 }
 

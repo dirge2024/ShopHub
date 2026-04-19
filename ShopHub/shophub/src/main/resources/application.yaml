@@ -5,7 +5,7 @@ spring:
     name: shophub
   datasource:
     driver-class-name: com.mysql.jdbc.Driver
-    url: jdbc:mysql://127.0.0.1:3306/hmdp?useSSL=false&serverTimezone=UTC
+    url: jdbc:mysql://127.0.0.1:3306/shophub?useSSL=false&serverTimezone=UTC
     username: root
     password: wsy2642@
   redis:
@@ -24,7 +24,7 @@ spring:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
       properties:
-        spring.json.add.type.headers: false
+        spring.json.add.type.headers: true
     consumer:
       group-id: shophub-consumer-group
       auto-offset-reset: latest
@@ -32,7 +32,7 @@ spring:
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
         spring.json.trusted.packages: com.shophub.messaging.event
-        spring.json.use.type.headers: false
+        spring.json.use.type.headers: true
   cache:
     type: caffeine
   jackson:

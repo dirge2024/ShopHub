@@ -50,8 +50,9 @@ public class ShopEventConsumer {
                 return;
             }
 
+            // 重试前刷新重试次数和时间，便于后续消费链路识别当前消息状态。
             event.setRetryCount(currentRetry + 1);
-            event.setCreatedAt(LocalDateTime.now());
+            event.setCreatedAt(LocalDateTime.now().toString());
             boolean retrySent = shopEventProducer.sendSeckillOrder(event);
             if (!retrySent) {
                 boolean deadLetterSent = shopEventProducer.sendSeckillOrderDeadLetter(event);
@@ -78,6 +79,7 @@ public class ShopEventConsumer {
             return;
         }
 
+        // 缓存补偿先做有限次重试，超过阈值后再转入死信队列。
         event.setRetryCount(currentRetry + 1);
         event.setCreatedAt(LocalDateTime.now());
         boolean retrySent = shopEventProducer.sendCacheEvict(event);

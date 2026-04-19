@@ -1,6 +1,8 @@
 ﻿# IDE
 .idea/
 .vscode/
+.vs/
+.codex/
 
 # OS
 .DS_Store
