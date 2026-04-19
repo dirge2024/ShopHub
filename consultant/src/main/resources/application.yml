@@ -61,4 +61,4 @@ mybatis:
     map-underscore-to-camel-case: true
 
 mybatis-plus:
-  type-aliases-package: com.itheima.consultant.pojo # mybatis-plus的别名扫描包
+  type-aliases-package: com.shophub.consultant.pojo # mybatis-plus鐨勫埆鍚嶆壂鎻忓寘
