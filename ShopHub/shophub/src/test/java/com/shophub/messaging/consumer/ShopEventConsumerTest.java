@@ -4,6 +4,7 @@ import com.shophub.messaging.event.CacheEvictEvent;
 import com.shophub.messaging.event.SeckillOrderEvent;
 import com.shophub.messaging.producer.ShopEventProducer;
 import com.shophub.service.CacheEvictService;
+import com.shophub.service.MqGovernanceService;
 import com.shophub.service.VoucherOrderTransactionalService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -37,6 +38,9 @@ class ShopEventConsumerTest {
     @Mock
     private ShopEventProducer shopEventProducer;
 
+    @Mock
+    private MqGovernanceService mqGovernanceService;
+
     @BeforeEach
     void setUp() {
         ReflectionTestUtils.setField(shopEventConsumer, "cacheEvictMaxRetry", 3);
@@ -55,6 +59,7 @@ class ShopEventConsumerTest {
 
         assertEquals(Integer.valueOf(2), event.getRetryCount());
         assertNotNull(event.getCreatedAt());
+        verify(mqGovernanceService).recordRetry("seckill_order", "1", event, 2, "consume failed");
         verify(shopEventProducer).sendSeckillOrder(event);
         verify(shopEventProducer, never()).sendSeckillOrderDeadLetter(event);
     }
@@ -69,6 +74,7 @@ class ShopEventConsumerTest {
 
         shopEventConsumer.handleSeckillOrder(event);
 
+        verify(mqGovernanceService).recordDeadLetter("seckill_order", "1", event, 3, "consume failed");
         verify(shopEventProducer).sendSeckillOrderDeadLetter(event);
         verify(shopEventProducer, never()).sendSeckillOrder(event);
     }
@@ -83,6 +89,7 @@ class ShopEventConsumerTest {
 
         assertEquals(Integer.valueOf(2), event.getRetryCount());
         assertNotNull(event.getCreatedAt());
+        verify(mqGovernanceService).recordRetry("cache_evict", "shop:1", event, 2, "缓存补偿删除失败");
         verify(shopEventProducer).sendCacheEvict(event);
         verify(shopEventProducer, never()).sendCacheEvictDeadLetter(event);
     }
@@ -95,6 +102,7 @@ class ShopEventConsumerTest {
 
         shopEventConsumer.handleCacheEvict(event);
 
+        verify(mqGovernanceService).recordDeadLetter("cache_evict", "shop:1", event, 3, "缓存补偿达到最大重试次数");
         verify(shopEventProducer).sendCacheEvictDeadLetter(event);
         verify(shopEventProducer, never()).sendCacheEvict(event);
     }

@@ -16,10 +16,14 @@ public interface IVoucherOrderService extends IService<VoucherOrder> {
 
     Result seckillVoucher(Long voucherId);
 
+    Result queryOrderStatus(Long orderId);
+
     Result paySuccess(Long orderId, Integer payType);
 
     Result closeTimeoutOrder(Long orderId, Integer timeoutMinutes);
 
     int scanTimeoutOrders(Integer timeoutMinutes, Integer batchSize);
+
+    Result manualScanTimeoutOrders(Integer timeoutMinutes, Integer batchSize);
 }
 

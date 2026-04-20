@@ -49,6 +49,9 @@ shophub:
   mq:
     cache-evict-max-retry: 3
     seckill-order-max-retry: 3
+    governance:
+      recent-limit: 100
+      record-retention-days: 7
   order:
     timeout-minutes: 15
     scan-batch-size: 20

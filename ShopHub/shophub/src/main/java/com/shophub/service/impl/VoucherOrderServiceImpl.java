@@ -21,8 +21,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Resource;
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import static com.shophub.utils.RedisConstants.SECKILL_STOCK_KEY;
@@ -98,15 +100,43 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
     }
 
     @Override
+    public Result queryOrderStatus(Long orderId) {
+        VoucherOrder voucherOrder = getById(orderId);
+        if (voucherOrder == null) {
+            return Result.fail("订单不存在");
+        }
+
+        VoucherOrderStatus currentStatus = VoucherOrderStatus.of(voucherOrder.getStatus());
+        Map<String, Object> statusInfo = new LinkedHashMap<>();
+        statusInfo.put("orderId", voucherOrder.getId());
+        statusInfo.put("status", voucherOrder.getStatus());
+        statusInfo.put("statusDesc", currentStatus == null ? "未知状态" : currentStatus.getDesc());
+        statusInfo.put("payType", voucherOrder.getPayType());
+        statusInfo.put("createTime", voucherOrder.getCreateTime());
+        statusInfo.put("payTime", voucherOrder.getPayTime());
+        statusInfo.put("updateTime", voucherOrder.getUpdateTime());
+        return Result.ok(statusInfo);
+    }
+
+    @Override
     @Transactional
     public Result paySuccess(Long orderId, Integer payType) {
         VoucherOrder voucherOrder = getById(orderId);
         if (voucherOrder == null) {
             return Result.fail("订单不存在");
         }
+        if (!isValidPayType(payType)) {
+            return Result.fail("支付方式不合法");
+        }
         VoucherOrderStatus currentStatus = VoucherOrderStatus.of(voucherOrder.getStatus());
+        if (currentStatus == null) {
+            return Result.fail("当前订单状态异常");
+        }
         if (VoucherOrderStatus.PAID == currentStatus) {
             return Result.ok("订单已支付");
+        }
+        if (VoucherOrderStatus.CANCELED == currentStatus) {
+            return Result.fail("订单已取消，无法支付");
         }
         if (VoucherOrderStatus.UNPAID != currentStatus) {
             return Result.fail("当前订单状态不允许支付");
@@ -121,15 +151,26 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         if (voucherOrder == null) {
             return Result.fail("订单不存在");
         }
+        if (timeoutMinutes == null || timeoutMinutes < 1) {
+            return Result.fail("超时时间必须大于0");
+        }
         VoucherOrderStatus currentStatus = VoucherOrderStatus.of(voucherOrder.getStatus());
+        if (currentStatus == null) {
+            return Result.fail("当前订单状态异常");
+        }
         if (VoucherOrderStatus.CANCELED == currentStatus) {
             return Result.ok("订单已取消");
+        }
+        if (VoucherOrderStatus.PAID == currentStatus) {
+            return Result.fail("订单已支付，无需关单");
         }
         if (VoucherOrderStatus.UNPAID != currentStatus) {
             return Result.fail("当前订单状态不允许关单");
         }
-        if (voucherOrder.getCreateTime() == null ||
-                voucherOrder.getCreateTime().plusMinutes(timeoutMinutes).isAfter(LocalDateTime.now())) {
+        if (voucherOrder.getCreateTime() == null) {
+            return Result.fail("订单创建时间缺失");
+        }
+        if (voucherOrder.getCreateTime().plusMinutes(timeoutMinutes).isAfter(LocalDateTime.now())) {
             return Result.fail("订单未超时");
         }
         return updateOrderStatus(voucherOrder, VoucherOrderStatus.CANCELED, null, "超时关单成功");
@@ -155,6 +196,23 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
             }
         }
         return successCount;
+    }
+
+    @Override
+    public Result manualScanTimeoutOrders(Integer timeoutMinutes, Integer batchSize) {
+        if (timeoutMinutes == null || timeoutMinutes < 1) {
+            return Result.fail("超时时间必须大于0");
+        }
+        if (batchSize == null || batchSize < 1) {
+            return Result.fail("扫描批次大小必须大于0");
+        }
+
+        int successCount = scanTimeoutOrders(timeoutMinutes, batchSize);
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("timeoutMinutes", timeoutMinutes);
+        result.put("batchSize", batchSize);
+        result.put("successCount", successCount);
+        return Result.ok(result);
     }
 
     private Result updateOrderStatus(VoucherOrder voucherOrder, VoucherOrderStatus targetStatus, Integer payType, String successMessage) {
@@ -205,6 +263,10 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
                 TimeUnit.DAYS
         );
         return null;
+    }
+
+    private boolean isValidPayType(Integer payType) {
+        return payType != null && (payType == 1 || payType == 2 || payType == 3);
     }
 }
 

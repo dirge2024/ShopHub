@@ -3,6 +3,7 @@ package com.shophub.controller;
 
 import com.shophub.dto.Result;
 import com.shophub.service.IVoucherOrderService;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -25,10 +26,16 @@ public class VoucherOrderController {
 
     @Resource
     private IVoucherOrderService voucherOrderService;
+
     @PostMapping("seckill/{id}")
     public Result seckillVoucher(@PathVariable("id") Long voucherId) {
 
         return voucherOrderService.seckillVoucher(voucherId);
+    }
+
+    @GetMapping("{id}/status")
+    public Result queryOrderStatus(@PathVariable("id") Long orderId) {
+        return voucherOrderService.queryOrderStatus(orderId);
     }
 
     @PostMapping("pay-success/{id}")
@@ -41,6 +48,13 @@ public class VoucherOrderController {
     public Result closeTimeoutOrder(@PathVariable("id") Long orderId,
                                     @RequestParam(value = "timeoutMinutes", defaultValue = "15") Integer timeoutMinutes) {
         return voucherOrderService.closeTimeoutOrder(orderId, timeoutMinutes);
+    }
+
+    @PostMapping("timeout-scan")
+    public Result manualScanTimeoutOrders(
+            @RequestParam(value = "timeoutMinutes", defaultValue = "15") Integer timeoutMinutes,
+            @RequestParam(value = "batchSize", defaultValue = "20") Integer batchSize) {
+        return voucherOrderService.manualScanTimeoutOrders(timeoutMinutes, batchSize);
     }
 }
 

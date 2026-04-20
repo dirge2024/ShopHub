@@ -15,6 +15,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -46,6 +47,31 @@ class VoucherOrderServiceImplTest {
 
         assertFalse(result.getSuccess());
         assertEquals("订单不存在", result.getErrorMsg());
+    }
+
+    @Test
+    void queryOrderStatusShouldReturnReadableStatus() {
+        VoucherOrder order = buildOrder(1L, VoucherOrderStatus.PAID, LocalDateTime.now().minusMinutes(20));
+        order.setPayType(2);
+        doReturn(order).when(voucherOrderService).getById(1L);
+
+        Result result = voucherOrderService.queryOrderStatus(1L);
+
+        assertTrue(result.getSuccess());
+        Map<?, ?> statusInfo = (Map<?, ?>) result.getData();
+        assertEquals(1L, statusInfo.get("orderId"));
+        assertEquals(VoucherOrderStatus.PAID.getDesc(), statusInfo.get("statusDesc"));
+    }
+
+    @Test
+    void paySuccessShouldRejectInvalidPayType() {
+        VoucherOrder order = buildOrder(1L, VoucherOrderStatus.UNPAID, LocalDateTime.now().minusMinutes(20));
+        doReturn(order).when(voucherOrderService).getById(1L);
+
+        Result result = voucherOrderService.paySuccess(1L, 9);
+
+        assertFalse(result.getSuccess());
+        assertEquals("支付方式不合法", result.getErrorMsg());
     }
 
     @Test
@@ -81,6 +107,17 @@ class VoucherOrderServiceImplTest {
     }
 
     @Test
+    void paySuccessShouldRejectCanceledOrder() {
+        VoucherOrder order = buildOrder(1L, VoucherOrderStatus.CANCELED, LocalDateTime.now().minusMinutes(20));
+        doReturn(order).when(voucherOrderService).getById(1L);
+
+        Result result = voucherOrderService.paySuccess(1L, 2);
+
+        assertFalse(result.getSuccess());
+        assertEquals("订单已取消，无法支付", result.getErrorMsg());
+    }
+
+    @Test
     void closeTimeoutOrderShouldRejectUnexpiredOrder() {
         VoucherOrder order = buildOrder(1L, VoucherOrderStatus.UNPAID, LocalDateTime.now().minusMinutes(5));
         doReturn(order).when(voucherOrderService).getById(1L);
@@ -90,6 +127,17 @@ class VoucherOrderServiceImplTest {
         assertFalse(result.getSuccess());
         assertEquals("订单未超时", result.getErrorMsg());
         verify(voucherOrderService, never()).updateById(any(VoucherOrder.class));
+    }
+
+    @Test
+    void closeTimeoutOrderShouldRejectPaidOrder() {
+        VoucherOrder order = buildOrder(1L, VoucherOrderStatus.PAID, LocalDateTime.now().minusMinutes(30));
+        doReturn(order).when(voucherOrderService).getById(1L);
+
+        Result result = voucherOrderService.closeTimeoutOrder(1L, 15);
+
+        assertFalse(result.getSuccess());
+        assertEquals("订单已支付，无需关单", result.getErrorMsg());
     }
 
     @Test
@@ -109,6 +157,17 @@ class VoucherOrderServiceImplTest {
         assertEquals(VoucherOrderStatus.CANCELED.getCode(), updateOrder.getStatus());
         assertEquals(order.getVersion(), updateOrder.getVersion());
         assertEquals(null, updateOrder.getPayType());
+    }
+
+    @Test
+    void closeTimeoutOrderShouldRejectMissingCreateTime() {
+        VoucherOrder order = buildOrder(1L, VoucherOrderStatus.UNPAID, null);
+        doReturn(order).when(voucherOrderService).getById(1L);
+
+        Result result = voucherOrderService.closeTimeoutOrder(1L, 15);
+
+        assertFalse(result.getSuccess());
+        assertEquals("订单创建时间缺失", result.getErrorMsg());
     }
 
     @Test
@@ -141,6 +200,27 @@ class VoucherOrderServiceImplTest {
         assertEquals(1, count);
         verify(voucherOrderService).closeTimeoutOrder(1L, 15);
         verify(voucherOrderService).closeTimeoutOrder(2L, 15);
+    }
+
+    @Test
+    void manualScanTimeoutOrdersShouldReturnSummary() {
+        doReturn(2).when(voucherOrderService).scanTimeoutOrders(15, 20);
+
+        Result result = voucherOrderService.manualScanTimeoutOrders(15, 20);
+
+        assertTrue(result.getSuccess());
+        Map<?, ?> summary = (Map<?, ?>) result.getData();
+        assertEquals(2, summary.get("successCount"));
+        assertEquals(15, summary.get("timeoutMinutes"));
+        assertEquals(20, summary.get("batchSize"));
+    }
+
+    @Test
+    void manualScanTimeoutOrdersShouldRejectInvalidBatchSize() {
+        Result result = voucherOrderService.manualScanTimeoutOrders(15, 0);
+
+        assertFalse(result.getSuccess());
+        assertEquals("扫描批次大小必须大于0", result.getErrorMsg());
     }
 
     private VoucherOrder buildOrder(Long orderId, VoucherOrderStatus status, LocalDateTime createTime) {
