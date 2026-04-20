@@ -1,4 +1,4 @@
-# ShopHub 功能落地规则
+﻿# ShopHub 功能落地规则
 
 本文档用于约束项目实现范围、分批推进节奏，以及标记当前已经完成的能力。
 
@@ -34,16 +34,16 @@
 
 ### 已完成
 
-- [x] Redis + Lua 秒杀资格校验：`seckill.lua` 已完成库存校验与一人一单判断
-- [x] 逻辑过期防缓存击穿：`ShopServiceImpl` 通过 `CacheClient` 支持热点店铺逻辑过期重建
-- [x] 空值缓存防缓存穿透：`CacheClient#queryWithPassThrough` 已提供空值缓存能力
-- [x] 阿里云百炼接入：`consultant` 模块已接入 DashScope 兼容接口
-- [x] Redis 会话记忆：`RedisChatMemoryStore` 已支持会话上下文记忆
-- [x] Function Calling 查询/预约：`ShopTool`、`VoucherTool`、`ReservationTool` 已落地
-- [x] 第一批补齐：秒杀下单链路切换为 Kafka 异步消费
-- [x] 第一批补齐：店铺查询接入 Caffeine + Redis 二级缓存
-- [x] 第一批补齐：店铺更新后的缓存删除失败补偿重试接入 Kafka
-- [x] 第二批起步：补齐订单乐观锁版本字段与 MyBatis-Plus 乐观锁配置
+- [√] Redis + Lua 秒杀资格校验：`seckill.lua` 已完成库存校验与一人一单判断
+- [√] 逻辑过期防缓存击穿：`ShopServiceImpl` 通过 `CacheClient` 支持热点店铺逻辑过期重建
+- [√] 空值缓存防缓存穿透：`CacheClient#queryWithPassThrough` 已提供空值缓存能力
+- [√] 阿里云百炼接入：`consultant` 模块已接入 DashScope 兼容接口
+- [√] Redis 会话记忆：`RedisChatMemoryStore` 已支持会话上下文记忆
+- [√] Function Calling 查询/预约：`ShopTool`、`VoucherTool`、`ReservationTool` 已落地
+- [√] 第一批补齐：秒杀下单链路切换为 Kafka 异步消费
+- [√] 第一批补齐：店铺查询接入 Caffeine + Redis 二级缓存
+- [√] 第一批补齐：店铺更新后的缓存删除失败补偿重试接入 Kafka
+- [√] 第二批起步：补齐订单乐观锁版本字段与 MyBatis-Plus 乐观锁配置
 
 ### 已实现 / 待联调
 
@@ -64,14 +64,14 @@
 
 ### 第一批：缓存与秒杀异步链路
 
-- [x] 引入 Kafka，替换本地阻塞队列的秒杀异步下单实现
-- [x] 引入 Caffeine 本地缓存，构建店铺与店铺类型二级缓存
-- [x] 店铺更新后先删缓存，删除失败时发送补偿消息重试
-- [x] 修正店铺类型缓存 key 不稳定的问题
+- [√] 引入 Kafka，替换本地阻塞队列的秒杀异步下单实现
+- [√] 引入 Caffeine 本地缓存，构建店铺与店铺类型二级缓存
+- [√] 店铺更新后先删缓存，删除失败时发送补偿消息重试
+- [√] 修正店铺类型缓存 key 不稳定的问题
 
 ### 第二批：订单支付状态闭环
 
-- [x] 为优惠券订单补充乐观锁基础字段
+- [√] 为优惠券订单补充乐观锁基础字段
 - [已实现] 增加模拟支付成功回调的基础状态流转能力
 - [已实现] 增加超时关单的基础状态流转能力
 - [已实现] 使用乐观锁防止支付回调与关单并发冲突
