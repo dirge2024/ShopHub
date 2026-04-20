@@ -20,76 +20,76 @@ public class Voucher implements Serializable {
     private static final long serialVersionUID = 1L;
 
     /**
-     * 涓婚敭
+     * 主键
      */
     @TableId(value = "id", type = IdType.AUTO)
     private Long id;
 
     /**
-     * 鍟嗛摵id
+     * 商铺 id
      */
     private Long shopId;
 
     /**
-     * 浠ｉ噾鍒告爣棰?
+     * 代金券标题
      */
     private String title;
 
     /**
-     * 鍓爣棰?
+     * 副标题
      */
     private String subTitle;
 
     /**
-     * 浣跨敤瑙勫垯
+     * 使用规则
      */
     private String rules;
 
     /**
-     * 鏀粯閲戦
+     * 支付金额
      */
     private Long payValue;
 
     /**
-     * 鎶垫墸閲戦
+     * 抵扣金额
      */
     private Long actualValue;
 
     /**
-     * 浼樻儬鍒哥被鍨?
+     * 优惠券类型
      */
     private Integer type;
 
     /**
-     * 浼樻儬鍒哥被鍨?
+     * 状态
      */
     private Integer status;
     /**
-     * 搴撳瓨
+     * 库存
      */
     @TableField(exist = false)
     private Integer stock;
 
     /**
-     * 鐢熸晥鏃堕棿
+     * 生效时间
      */
     @TableField(exist = false)
     private LocalDateTime beginTime;
 
     /**
-     * 澶辨晥鏃堕棿
+     * 失效时间
      */
     @TableField(exist = false)
     private LocalDateTime endTime;
 
     /**
-     * 鍒涘缓鏃堕棿
+     * 创建时间
      */
     private LocalDateTime createTime;
 
 
     /**
-     * 鏇存柊鏃堕棿
+     * 更新时间
      */
     private LocalDateTime updateTime;
 
