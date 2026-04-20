@@ -4,6 +4,7 @@ import com.shophub.entity.Shop;
 import com.shophub.service.impl.ShopServiceImpl;
 import com.shophub.utils.CacheClient;
 import com.shophub.utils.RedisIdWorker;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
@@ -16,6 +17,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.shophub.utils.RedisConstants.CACHE_SHOP_KEY;
 
+@Disabled("Requires local Redis and database for manual verification")
 @SpringBootTest
 class ShopHubApplicationTests {
 
