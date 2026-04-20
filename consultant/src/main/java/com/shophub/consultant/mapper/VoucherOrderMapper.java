@@ -7,15 +7,6 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Select;
 
 import java.util.List;
-
-/**
- * <p>
- *  Mapper 鎺ュ彛
- * </p>
- *
- * @author 铏庡摜
- * @since 2021-12-22
- */
 @Mapper
 public interface VoucherOrderMapper extends BaseMapper<VoucherOrder> {
 

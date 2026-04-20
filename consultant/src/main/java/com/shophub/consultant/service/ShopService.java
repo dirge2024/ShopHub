@@ -11,9 +11,10 @@ public class ShopService {
     @Autowired
     private ShopMapper shopMapper;
 
-    //1.鏌ヨ鍟嗗淇℃伅
+    /**
+     * 根据商家名称查询商家信息。
+     */
     public Shop findShop(String shopName) {
         return shopMapper.findShop(shopName);
     }
-
 }

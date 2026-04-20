@@ -10,11 +10,15 @@ import java.util.List;
 @Mapper
 public interface ReservationMapper {
 
-    //1.娣诲姞棰勭害淇℃伅
+    /**
+     * 新增预约记录。
+     */
     @Insert("insert into reservation(name,phone,communication_time,shop_name) values(#{name},#{phone},#{communicationTime},#{shopName})")
     void insert(Reservation reservation);
-    //2.鏍规嵁鎵嬫満鍙锋煡璇㈤绾︿俊鎭?
+
+    /**
+     * 根据手机号查询预约记录。
+     */
     @Select("select * from reservation where phone=#{phone}")
     List<Reservation> findByPhone(String phone);
-
 }

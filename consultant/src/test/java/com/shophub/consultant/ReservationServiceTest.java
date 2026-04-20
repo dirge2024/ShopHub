@@ -6,22 +6,28 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 @SpringBootTest
 public class ReservationServiceTest {
+
     @Autowired
     private ReservationService reservationService;
-    //娴嬭瘯娣诲姞
+
+    /**
+     * 预留的插入测试样例，联调数据库写入时可以按需打开。
+     */
     @Test
-    void testInsert(){
-//        Reservation reservation = new Reservation(null, "灏忕帇", "鐢?, "13800000001", LocalDateTime.now(), "涓婃捣", 580);
+    void testInsert() {
+//        Reservation reservation = new Reservation(null, "小王", "13800000001", LocalDateTime.now(), "上海", 580);
 //        reservationService.insert(reservation);
     }
-    //娴嬭瘯鏌ヨ
+
+    /**
+     * 根据手机号查询预约记录。
+     */
     @Test
-    void testFindByPhone(){
+    void testFindByPhone() {
         String phone = "13800000001";
         List<Reservation> reservation = reservationService.findByPhone(phone);
         System.out.println(reservation);

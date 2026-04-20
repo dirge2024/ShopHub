@@ -9,29 +9,28 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Repository;
 
 import java.time.Duration;
+import java.util.Collections;
 import java.util.List;
 
 @Repository
 public class RedisChatMemoryStore implements ChatMemoryStore {
-    //娉ㄥ叆RedisTemplate
+
     @Autowired
     private StringRedisTemplate redisTemplate;
+
     @Override
     public List<ChatMessage> getMessages(Object memoryId) {
-        //鑾峰彇浼氳瘽娑堟伅
-        String json = redisTemplate.opsForValue().get(memoryId);
-        //鎶妀son瀛楃涓茶浆鍖栨垚List<ChatMessage>
-        List<ChatMessage> list = ChatMessageDeserializer.messagesFromJson(json);
-        return list;
+        String json = redisTemplate.opsForValue().get(memoryId.toString());
+        if (json == null || json.trim().isEmpty()) {
+            return Collections.emptyList();
+        }
+        return ChatMessageDeserializer.messagesFromJson(json);
     }
 
     @Override
     public void updateMessages(Object memoryId, List<ChatMessage> list) {
-        //鏇存柊浼氳瘽娑堟伅
-        //1.鎶妉ist杞崲鎴恓son鏁版嵁
         String json = ChatMessageSerializer.messagesToJson(list);
-        //2.鎶妀son鏁版嵁瀛樺偍鍒皉edis涓?
-        redisTemplate.opsForValue().set(memoryId.toString(),json, Duration.ofDays(1));
+        redisTemplate.opsForValue().set(memoryId.toString(), json, Duration.ofDays(1));
     }
 
     @Override
@@ -39,4 +38,3 @@ public class RedisChatMemoryStore implements ChatMemoryStore {
         redisTemplate.delete(memoryId.toString());
     }
 }
-

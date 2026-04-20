@@ -13,10 +13,8 @@ public class ShopTool {
     @Autowired
     private ShopService shopService;
 
-    //1.宸ュ叿鏂规硶: 鏌ヨ鍟嗗淇℃伅
-    @Tool("鏍规嵁鍟嗗鍚嶇О鏌ヨ鍟嗗淇℃伅")
-    public Shop findShop(@P("鍟嗗鍚嶇О") String shopName) {
+    @Tool("根据商家名称查询商家信息")
+    public Shop findShop(@P("商家名称") String shopName) {
         return shopService.findShop(shopName);
     }
-
 }
