@@ -18,11 +18,17 @@ public class MqGovernanceController {
     @Resource
     private MqGovernanceService mqGovernanceService;
 
+    /**
+     * 查询 MQ 治理总览，返回计数、最近重试和最近死信记录。
+     */
     @GetMapping("/overview")
     public Result overview(@RequestParam(value = "limit", defaultValue = "5") Integer limit) {
         return Result.ok(mqGovernanceService.getOverview(limit));
     }
 
+    /**
+     * 按场景和阶段查询治理记录，便于联调时定位具体失败消息。
+     */
     @GetMapping("/records")
     public Result listRecords(@RequestParam(value = "scene", required = false) String scene,
                               @RequestParam(value = "stage", required = false) String stage,
@@ -30,6 +36,9 @@ public class MqGovernanceController {
         return Result.ok(mqGovernanceService.listRecords(scene, stage, limit));
     }
 
+    /**
+     * 手动重放指定死信记录，主要用于联调和人工补偿。
+     */
     @PostMapping("/records/{recordId}/replay")
     public Result replayDeadLetter(@PathVariable("recordId") String recordId) {
         return mqGovernanceService.replayDeadLetter(recordId);

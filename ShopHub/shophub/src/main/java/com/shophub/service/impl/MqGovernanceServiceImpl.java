@@ -59,16 +59,26 @@ public class MqGovernanceServiceImpl implements MqGovernanceService {
     @Value("${shophub.mq.governance.recent-limit:100}")
     private long recentLimit;
 
+    /**
+     * 记录一次重试事件，供治理概览和后续排查使用。
+     */
     @Override
     public void recordRetry(String scene, String businessKey, Object payload, Integer retryCount, String errorMessage) {
         saveRecord(scene, STAGE_RETRY, businessKey, payload, retryCount, errorMessage);
     }
 
+    /**
+     * 记录一次死信事件，后续可以通过接口查询并手动重放。
+     */
     @Override
     public void recordDeadLetter(String scene, String businessKey, Object payload, Integer retryCount, String errorMessage) {
         saveRecord(scene, STAGE_DEAD_LETTER, businessKey, payload, retryCount, errorMessage);
     }
 
+    /**
+     * 返回治理总览：
+     * 包括累计计数、最近的重试记录和最近的死信记录。
+     */
     @Override
     public MqGovernanceOverviewDTO getOverview(int limit) {
         MqGovernanceOverviewDTO overview = new MqGovernanceOverviewDTO();
@@ -78,6 +88,9 @@ public class MqGovernanceServiceImpl implements MqGovernanceService {
         return overview;
     }
 
+    /**
+     * 按场景和阶段过滤治理记录，默认从最近记录里截取一段返回。
+     */
     @Override
     public List<MqGovernanceRecordDTO> listRecords(String scene, String stage, int limit) {
         int normalizedLimit = normalizeLimit(limit);
@@ -118,6 +131,10 @@ public class MqGovernanceServiceImpl implements MqGovernanceService {
         return records;
     }
 
+    /**
+     * 手动重放死信记录：
+     * 只允许真正的死信记录进入重放，并把重放结果重新记回治理记录。
+     */
     @Override
     public Result replayDeadLetter(String recordId) {
         MqGovernanceRecordDTO record = loadRecord(recordId);
@@ -139,6 +156,10 @@ public class MqGovernanceServiceImpl implements MqGovernanceService {
         }
     }
 
+    /**
+     * 把治理记录落到 Redis：
+     * 单条详情单独存储，最近记录列表单独维护，便于后续查询和分页截断。
+     */
     private void saveRecord(String scene, String stage, String businessKey, Object payload, Integer retryCount, String errorMessage) {
         MqGovernanceRecordDTO record = new MqGovernanceRecordDTO();
         record.setId(UUID.randomUUID().toString());
@@ -157,6 +178,9 @@ public class MqGovernanceServiceImpl implements MqGovernanceService {
         incrementCounter(scene, stage);
     }
 
+    /**
+     * Redis 中既保存详情，也维护一个“最近记录列表”用于快速概览。
+     */
     private void persistRecord(MqGovernanceRecordDTO record) {
         String serialized = serializeRecord(record);
         if (serialized == null) {
@@ -171,6 +195,9 @@ public class MqGovernanceServiceImpl implements MqGovernanceService {
         listOperations.trim(RECENT_RECORDS_KEY, 0, recentLimit - 1);
     }
 
+    /**
+     * 每次手动重放后都更新回放次数、结果和时间，避免只知道“发过死信”而不知道后续处理状态。
+     */
     private void updateReplayStatus(MqGovernanceRecordDTO record, boolean success, String message) {
         record.setReplayCount(record.getReplayCount() == null ? 1 : record.getReplayCount() + 1);
         record.setLastReplaySuccess(success);
@@ -180,6 +207,9 @@ public class MqGovernanceServiceImpl implements MqGovernanceService {
         incrementCounter(record.getScene(), success ? STAGE_REPLAY_SUCCESS : STAGE_REPLAY_FAILED);
     }
 
+    /**
+     * 根据治理场景把载荷反序列化回原始事件对象，再重新投递到原业务 Topic。
+     */
     private boolean replayRecord(MqGovernanceRecordDTO record) throws JsonProcessingException {
         if (SCENE_SECKILL_ORDER.equals(record.getScene())) {
             SeckillOrderEvent event = objectMapper.readValue(record.getPayloadJson(), SeckillOrderEvent.class);

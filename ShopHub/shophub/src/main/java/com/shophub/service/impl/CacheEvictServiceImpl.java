@@ -21,6 +21,9 @@ public class CacheEvictServiceImpl implements CacheEvictService {
     @Resource
     private LocalCacheService localCacheService;
 
+    /**
+     * 删除单个店铺缓存时，先清理本地缓存，再删除 Redis，尽量缩短双层缓存不一致窗口。
+     */
     @Override
     public boolean evictShopCache(Long shopId) {
         if (shopId == null) {
@@ -30,6 +33,9 @@ public class CacheEvictServiceImpl implements CacheEvictService {
         return deleteRedisKey(CACHE_SHOP_KEY + shopId);
     }
 
+    /**
+     * 消费缓存补偿消息时，按事件里的缓存名称和 key 重新执行一次删除。
+     */
     @Override
     public boolean retryEvict(CacheEvictEvent event) {
         if (event == null) {
@@ -39,6 +45,9 @@ public class CacheEvictServiceImpl implements CacheEvictService {
         return deleteRedisKey(event.getRedisKey());
     }
 
+    /**
+     * Redis 删除失败时返回 false，由上游决定是重试还是转入死信。
+     */
     private boolean deleteRedisKey(String key) {
         try {
             stringRedisTemplate.delete(key);

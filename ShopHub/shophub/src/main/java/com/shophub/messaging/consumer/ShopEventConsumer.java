@@ -41,6 +41,10 @@ public class ShopEventConsumer {
     @Value("${shophub.mq.seckill-order-max-retry:3}")
     private int seckillOrderMaxRetry;
 
+    /**
+     * 处理秒杀下单消息：
+     * 业务落库失败时先记录治理信息，再按重试阈值决定重发还是投死信。
+     */
     @KafkaListener(topics = MQTopics.SECKILL_ORDER_TOPIC, groupId = "shophub-seckill-order-group")
     public void handleSeckillOrder(SeckillOrderEvent event) {
         try {
@@ -90,6 +94,10 @@ public class ShopEventConsumer {
         }
     }
 
+    /**
+     * 处理缓存补偿消息：
+     * 删除成功即结束，删除失败则进入有限次重试，超过阈值后写入死信。
+     */
     @KafkaListener(topics = MQTopics.CACHE_EVICT_TOPIC, groupId = "shophub-cache-evict-group")
     public void handleCacheEvict(CacheEvictEvent event) {
         boolean success = cacheEvictService.retryEvict(event);
@@ -139,12 +147,18 @@ public class ShopEventConsumer {
         }
     }
 
+    /**
+     * 死信监听只负责记录日志，真正的人工排查和重放入口交给治理接口处理。
+     */
     @KafkaListener(topics = MQTopics.SECKILL_ORDER_DLT_TOPIC, groupId = "shophub-seckill-order-dlt-group")
     public void handleSeckillOrderDeadLetter(SeckillOrderEvent event) {
         log.error("秒杀订单进入死信队列, orderId={}, userId={}, voucherId={}, retry={}",
                 event.getOrderId(), event.getUserId(), event.getVoucherId(), event.getRetryCount());
     }
 
+    /**
+     * 缓存补偿死信入口，便于后续联调时快速定位失败 key。
+     */
     @KafkaListener(topics = MQTopics.CACHE_EVICT_DLT_TOPIC, groupId = "shophub-cache-evict-dlt-group")
     public void handleCacheEvictDeadLetter(CacheEvictEvent event) {
         log.error("缓存补偿进入死信队列, key={}, retry={}", event.getRedisKey(), event.getRetryCount());

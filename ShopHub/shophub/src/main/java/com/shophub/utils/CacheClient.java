@@ -24,20 +24,24 @@ import static com.shophub.utils.RedisConstants.*;
 @Component
 public class CacheClient {
 
-    //不适用@Resource注解自动注入，这里右final关键字，使用构造器注入
+    // 这里使用构造器注入，既能保留 final，又方便工具类在测试中单独创建。
     private final StringRedisTemplate stringRedisTemplate;
 
-    //线程池
+    // 逻辑过期重建走独立线程池，避免查询线程长时间阻塞。
     private static final ExecutorService CACHE_REBUILD_EXECUTOR = Executors.newFixedThreadPool(10);
 
-    //获取锁
+    /**
+     * 尝试获取缓存重建锁，避免热点 key 在同一时间被多个线程同时重建。
+     */
     private boolean tryLock(String key)
     {
         Boolean flag = stringRedisTemplate.opsForValue().setIfAbsent(key,"1",LOCK_SHOP_TTL,TimeUnit.SECONDS);
         return BooleanUtil.isTrue(flag);
     }
 
-    // 释放锁
+    /**
+     * 释放缓存重建锁。
+     */
     private void unlock(String key)
     {
         stringRedisTemplate.delete(key);
@@ -48,71 +52,65 @@ public class CacheClient {
         this.stringRedisTemplate = stringRedisTemplate;
     }
 
-    //1.将数据加入redis，设置有效期，通用的写缓存方法
-    //解决靠策略 缓存空对象/空字符串
+    /**
+     * 普通写缓存方法，支持传入任意对象和 TTL。
+     */
     public void set(String key, Object value, Long timeout, TimeUnit unit)
     {
-        //stringRedisTemplate 传入的是字符串，所以需要将对象转换成json字符串
+        // StringRedisTemplate 只能写字符串，这里统一序列化成 JSON。
         stringRedisTemplate.opsForValue().set(key, JSONUtil.toJsonStr(value),timeout,unit);
     }
 
-    //2.将数据加入redis，设置逻辑过期时间，解决缓存击穿问题
+    /**
+     * 写入逻辑过期数据，用于热点数据过期后返回旧值并异步重建，降低缓存击穿风险。
+     */
     public void setWithLogicalExpire(String key,Object value,Long timeout,TimeUnit unit)
     {
-        //设置逻辑过期时间,不知道传入的数据类型，转换为RedisData，里面包好数据和过期时间
         RedisData redisData = new RedisData();
-        //调用两个set函数就行了
         redisData.setData(value);
-        //unit.toSeconds(timeout)确保计时单位是秒
         redisData.setExpireTime(LocalDateTime.now().plusSeconds(unit.toSeconds(timeout)));
-        //写入redis
         stringRedisTemplate.opsForValue().set(key,JSONUtil.toJsonStr(redisData));
     }
 
-    //缓存空值解决穿透，使用泛型
-    //泛型<T,ID> T 代表返回值类型，ID代表传入参数类型,
+    /**
+     * 通过缓存空值的方式防止缓存穿透。
+     * T 表示返回值类型，ID 表示查询参数类型。
+     */
     public <T,ID> T queryWithPassThrough(String keyPrefix,  ID id,Class<T> type,
                                          Function<ID,T> dbFallback, Long timeout, TimeUnit unit) {
         String key = keyPrefix+id;
-        //1、从redis查询商铺缓存,获取json字符串，不知道说明类型等下在抓换
+        // 1. 先查 Redis。
         String json = stringRedisTemplate.opsForValue().get(key);
         T t = null;
-        //2、要判断是否存在
         if(StrUtil.isNotBlank(json))
         {
-            //3、如果存在直接返回结果
-            /*为什么要转换的类型要卸载括号里，因为不知道传入的是什么类型，
-              所以在调用这个方法的时候传入一个Class<T> type参数，来指定转换的类型*/
             return JSONUtil.toBean(json,type);
         }
-        //还要判断一下是否为空值 即 ""
+        // 2. 命中空字符串，说明之前已经确认数据库不存在。
         if (json != null){
-            // 此时缓存数据为空值,""，说明之前查询过数据库不存在这个商铺，所以直接返回错误信息
             return null;
         }
-        //4、如果不存在根据id去数据库里面查询
-        //根本不知道具体怎么查询，所以这里要传入一个查询方法
+        // 3. Redis 未命中时回源数据库。
         t = dbFallback.apply(id);
-        //5、如果数据库也不存在直接返回错误
         if(Objects.isNull(t))
         {
-            //将空值写入redis
             this.set(key,"",timeout,unit);
-            //返回错误信息
             return null;
         }
-        //6、数据库里面存在，写入redis缓存, 上面写过了这里传参数就行
+        // 4. 数据存在则写回缓存，供后续请求直接命中。
         this.set(key,t,timeout,unit);
-        //7、返回结果
         return t;
     }
 
+    /**
+     * 逻辑过期查询：
+     * 命中未过期数据直接返回；命中过期数据返回旧值并尝试异步重建。
+     */
     public <R,ID> R queryLogicalExpire(String keyPrefix,ID id,Class<R> type,
                                        Function<ID,R> dbFallback,Long timeout, TimeUnit unit) {
         String key = keyPrefix+id;
-        //1、从redis查询商铺缓存
+        // 1. 先查 Redis。
         String json = stringRedisTemplate.opsForValue().get(key);
-        //2、要判断是否存在
         if(StrUtil.isBlank(json))
         {
             R r = dbFallback.apply(id);
@@ -122,46 +120,35 @@ public class CacheClient {
             this.setWithLogicalExpire(key, r, timeout, unit);
             return r;
         }
-        //4、命中，需要吧json反序列化为对象、
+        // 2. 命中后反序列化出业务数据和逻辑过期时间。
         RedisData redisData = JSONUtil.toBean(json,RedisData.class);
         JSONObject data = (JSONObject) redisData.getData();
         R r  = JSONUtil.toBean(data,type);
         LocalDateTime expireTime = redisData.getExpireTime();
-        //5、判断是否过期
         if(expireTime.isAfter(LocalDateTime.now()))
         {
-            //5.1、如果没过期，直接返回点评信息
             return r;
         }
 
-        //5.2、过期了，缓存重建
-        //6、缓存重建
-        //6.1、获取互斥锁
+        // 3. 已过期时尝试获取重建锁，避免多个线程同时查库。
         String lockKey = LOCK_SHOP_KEY+id;
         boolean isLock = tryLock(lockKey);
-        //6.2、判断是否获取成功
         if(isLock)
         {
-            //6.3、成功，开启独立线程，实现缓存重建
-            //在这里用使用线程池创建就好了，缓存重建就用saveShop2Redis
             CACHE_REBUILD_EXECUTOR.submit(()-> {
-                        //在这里面执行缓存重建
                         try {
-                            //先查数据库，还是要传入function
                             R r1 = dbFallback.apply(id);
-                            //再写数据库
                             this.setWithLogicalExpire(key,r1,timeout,unit);
                         } catch (Exception e) {
                             throw new RuntimeException(e);
                         } finally {
-                            //释放锁
                             unlock(lockKey);
                         }
                     }
             );
         }
 
-        //6.4、失败，返回过期的商铺信息
+        // 4. 无论是否拿到锁，都先返回旧值，保证热点请求快速响应。
         return r;
     }
 }

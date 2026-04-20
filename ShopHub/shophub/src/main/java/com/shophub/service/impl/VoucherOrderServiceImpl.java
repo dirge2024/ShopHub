@@ -61,6 +61,10 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         SECKILL_ROLLBACK_SCRIPT.setResultType(Long.class);
     }
 
+    /**
+     * 秒杀下单入口：
+     * 先通过 Redis + Lua 完成资格校验，再投递 Kafka 事件异步落库。
+     */
     @Override
     public Result seckillVoucher(Long voucherId) {
         // 兜底初始化 Redis 库存，保证直接插入数据库的测试秒杀券也能复用同一套 Lua 抢购链路。
@@ -99,6 +103,9 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         return Result.ok(orderId);
     }
 
+    /**
+     * 查询订单当前状态，主要用于支付、关单和扫描任务联调时快速确认结果。
+     */
     @Override
     public Result queryOrderStatus(Long orderId) {
         VoucherOrder voucherOrder = getById(orderId);
@@ -118,6 +125,10 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         return Result.ok(statusInfo);
     }
 
+    /**
+     * 模拟支付成功回调：
+     * 只允许未支付订单进入支付成功状态，并通过乐观锁兜住并发竞争。
+     */
     @Override
     @Transactional
     public Result paySuccess(Long orderId, Integer payType) {
@@ -144,6 +155,10 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         return updateOrderStatus(voucherOrder, VoucherOrderStatus.PAID, payType, "支付成功");
     }
 
+    /**
+     * 单笔超时关单：
+     * 只关闭已经超时且仍处于未支付状态的订单。
+     */
     @Override
     @Transactional
     public Result closeTimeoutOrder(Long orderId, Integer timeoutMinutes) {
@@ -176,6 +191,10 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         return updateOrderStatus(voucherOrder, VoucherOrderStatus.CANCELED, null, "超时关单成功");
     }
 
+    /**
+     * 扫描超时订单：
+     * 分批查出未支付且超过超时时间的订单，再复用单笔关单逻辑逐条处理。
+     */
     @Override
     public int scanTimeoutOrders(Integer timeoutMinutes, Integer batchSize) {
         LocalDateTime timeoutLine = LocalDateTime.now().minusMinutes(timeoutMinutes);
@@ -198,6 +217,9 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         return successCount;
     }
 
+    /**
+     * 手动触发超时扫描，便于联调阶段验证扫描批次和关单结果。
+     */
     @Override
     public Result manualScanTimeoutOrders(Integer timeoutMinutes, Integer batchSize) {
         if (timeoutMinutes == null || timeoutMinutes < 1) {
@@ -215,6 +237,10 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         return Result.ok(result);
     }
 
+    /**
+     * 统一封装订单状态更新动作：
+     * 调用方只关心目标状态，真正的乐观锁更新细节在这里集中处理。
+     */
     private Result updateOrderStatus(VoucherOrder voucherOrder, VoucherOrderStatus targetStatus, Integer payType, String successMessage) {
         VoucherOrder updateOrder = new VoucherOrder();
         updateOrder.setId(voucherOrder.getId());
@@ -231,6 +257,9 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         return Result.ok(successMessage);
     }
 
+    /**
+     * 当秒杀消息发送失败时，回滚 Lua 已经预扣的库存和一人一单标记。
+     */
     private void rollbackSeckillReservation(Long voucherId, Long userId) {
         stringRedisTemplate.execute(
                 SECKILL_ROLLBACK_SCRIPT,
@@ -240,6 +269,9 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         );
     }
 
+    /**
+     * 首次访问秒杀券时，将数据库库存预热到 Redis，后续扣减统一由 Lua 保证原子性。
+     */
     private Result initSeckillStockIfAbsent(Long voucherId) {
         String stockKey = SECKILL_STOCK_KEY + voucherId;
         Boolean hasKey = stringRedisTemplate.hasKey(stockKey);
@@ -265,6 +297,9 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         return null;
     }
 
+    /**
+     * 当前项目只支持余额、支付宝、微信三种模拟支付方式。
+     */
     private boolean isValidPayType(Integer payType) {
         return payType != null && (payType == 1 || payType == 2 || payType == 3);
     }
