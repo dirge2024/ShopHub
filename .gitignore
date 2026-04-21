@@ -20,6 +20,9 @@ Thumbs.db
 nginx-1.18.0/nginx-1.18.0/logs/
 nginx-1.18.0/nginx-1.18.0/temp/
 
+# Local-only archive
+_local_archive/
+
 # Archives
 *.zip
 *.tar
